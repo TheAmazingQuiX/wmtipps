@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>WM 2026 Tippspiel – Admin</title>
+<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@700;800&family=Archivo:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+<link rel="stylesheet" href="styles.css" />
+<style>
+  .admin-wrap { max-width: 760px; margin: 0 auto; padding: 30px 20px 60px; }
+  .admin-section { background: var(--board-raised); border: 1px solid rgba(244,241,232,0.1); border-radius: 14px; padding: 22px 24px; margin-bottom: 22px; }
+  .admin-section h2 { font-family: var(--font-display); text-transform: uppercase; margin-top: 0; }
+  .admin-row { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; align-items: center; }
+  .admin-row select, .admin-row input { background: var(--pitch); border: 1px solid rgba(244,241,232,0.2); border-radius: 6px; color: var(--chalk); padding: 8px 10px; font-family: var(--font-body); }
+  .admin-row input[type=number] { width: 70px; }
+  .admin-btn { background: var(--gold); color: var(--board); border: none; border-radius: 6px; padding: 9px 16px; font-weight: 700; }
+  .admin-msg { font-family: var(--font-mono); font-size: 12.5px; margin-top: 8px; }
+  .admin-msg.ok { color: var(--green-ok); }
+  .admin-msg.err { color: var(--red); }
+</style>
+</head>
+<body>
+<div class="admin-wrap">
+  <h1 class="brand-mark" style="margin-bottom:4px;">WM<span class="accent">2026</span> Admin</h1>
+  <p class="brand-sub" style="margin-bottom:24px;">Ergebnisse &amp; Platzhalter-Teams pflegen</p>
+
+  <div class="admin-section">
+    <h2>Zugang</h2>
+    <div class="admin-row">
+      <input id="supaUrl" type="text" placeholder="Supabase Project URL" style="flex:1; min-width:240px;">
+    </div>
+    <div class="admin-row">
+      <input id="supaKey" type="text" placeholder="Supabase anon key" style="flex:1; min-width:240px;">
+    </div>
+    <div class="admin-row">
+      <input id="adminPw" type="password" placeholder="Admin-Passwort (aus 01_schema.sql)" style="flex:1; min-width:240px;">
+      <button class="admin-btn" onclick="connect()">Verbinden &amp; Spiele laden</button>
+    </div>
+    <div id="connectMsg" class="admin-msg"></div>
+  </div>
+
+  <div class="admin-section">
+    <h2>Ergebnis eintragen</h2>
+    <div class="admin-row">
+      <select id="matchSelect" style="flex:1; min-width:260px;"></select>
+    </div>
+    <div class="admin-row">
+      <input id="scoreHome" type="number" min="0" placeholder="Heim">
+      <span>:</span>
+      <input id="scoreAway" type="number" min="0" placeholder="Gast">
+      <button class="admin-btn" onclick="saveResult()">Ergebnis speichern</button>
+    </div>
+    <div id="resultMsg" class="admin-msg"></div>
+  </div>
+
+  <div class="admin-section">
+    <h2>Platzhalter-Team ersetzen (K.o.-Runde)</h2>
+    <p style="font-size:13px; color:var(--steel);">
+      Sobald nach der Vorrunde feststeht, welches Team z. B. "Zweiter A" ist, kannst du das hier eintragen.
+      Ländercode = ISO-2-Code (z. B. "de" für Deutschland), für die Flagge.
+    </p>
+    <div class="admin-row">
+      <select id="matchSelect2" style="flex:1; min-width:260px;"></select>
+      <select id="sideSelect">
+        <option value="home">Heim-Team</option>
+        <option value="away">Gast-Team</option>
+      </select>
+    </div>
+    <div class="admin-row">
+      <input id="teamName" type="text" placeholder="Teamname, z. B. Spanien" style="flex:1; min-width:200px;">
+      <input id="teamFlagCode" type="text" placeholder="Ländercode, z. B. es" style="width:110px;">
+      <button class="admin-btn" onclick="saveTeam()">Team speichern</button>
+    </div>
+    <div id="teamMsg" class="admin-msg"></div>
+  </div>
+</div>
+
+<script>
+let supabase = null;
+let allMatches = [];
+
+function label(m) {
+  const date = new Date(m.kickoff).toLocaleDateString("de-DE", {day:"2-digit", month:"2-digit"});
+  return `#${m.id} · ${date} · ${m.team_home} - ${m.team_away}`;
+}
+
+async function connect() {
+  const url = document.getElementById("supaUrl").value.trim();
+  const key = document.getElementById("supaKey").value.trim();
+  const msg = document.getElementById("connectMsg");
+  if (!url || !key) { msg.textContent = "Bitte URL und Key eintragen."; msg.className = "admin-msg err"; return; }
+
+  supabase = window.supabase.createClient(url, key);
+  const { data, error } = await supabase.from("matches").select("*").order("kickoff");
+  if (error) {
+    msg.textContent = "Fehler: " + error.message;
+    msg.className = "admin-msg err";
+    return;
+  }
+  allMatches = data;
+  const sel1 = document.getElementById("matchSelect");
+  const sel2 = document.getElementById("matchSelect2");
+  sel1.innerHTML = "";
+  sel2.innerHTML = "";
+  data.forEach((m) => {
+    const opt1 = document.createElement("option");
+    opt1.value = m.id; opt1.textContent = label(m);
+    sel1.appendChild(opt1);
+    const opt2 = opt1.cloneNode(true);
+    sel2.appendChild(opt2);
+  });
+  msg.textContent = data.length + " Spiele geladen.";
+  msg.className = "admin-msg ok";
+}
+
+async function saveResult() {
+  const msg = document.getElementById("resultMsg");
+  const matchId = parseInt(document.getElementById("matchSelect").value, 10);
+  const home = parseInt(document.getElementById("scoreHome").value, 10);
+  const away = parseInt(document.getElementById("scoreAway").value, 10);
+  const pw = document.getElementById("adminPw").value;
+  if (isNaN(home) || isNaN(away)) { msg.textContent = "Bitte beide Ergebnisse eintragen."; msg.className = "admin-msg err"; return; }
+
+  const { error } = await supabase.rpc("set_match_result", {
+    p_match_id: matchId, p_score_home: home, p_score_away: away, p_admin_password: pw
+  });
+  if (error) { msg.textContent = "Fehler: " + error.message; msg.className = "admin-msg err"; return; }
+  msg.textContent = "Ergebnis gespeichert.";
+  msg.className = "admin-msg ok";
+}
+
+async function saveTeam() {
+  const msg = document.getElementById("teamMsg");
+  const matchId = parseInt(document.getElementById("matchSelect2").value, 10);
+  const side = document.getElementById("sideSelect").value;
+  const name = document.getElementById("teamName").value.trim();
+  const code = document.getElementById("teamFlagCode").value.trim().toLowerCase();
+  const pw = document.getElementById("adminPw").value;
+  if (!name || !code) { msg.textContent = "Bitte Teamname und Ländercode eintragen."; msg.className = "admin-msg err"; return; }
+
+  const flagUrl = `https://flagcdn.com/h40/${code}.png`;
+  const { error } = await supabase.rpc("set_match_team", {
+    p_match_id: matchId, p_side: side, p_team_name: name, p_flag_url: flagUrl, p_admin_password: pw
+  });
+  if (error) { msg.textContent = "Fehler: " + error.message; msg.className = "admin-msg err"; return; }
+  msg.textContent = "Team gespeichert.";
+  msg.className = "admin-msg ok";
+}
+</script>
+</body>
+</html>
