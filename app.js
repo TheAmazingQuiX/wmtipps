@@ -248,7 +248,10 @@ function MatchCard({ match, myPrediction, session, now, onSaved, onOpenDetails }
 
       <div className="meta-col">
         {hasScore ? (
-          <div className="score-display">{match.score_home}:{match.score_away}</div>
+          <React.Fragment>
+            <div className="score-display">{match.score_home}:{match.score_away}</div>
+            {match.status === "LIVE" && <div className="live-tag">LIVE</div>}
+          </React.Fragment>
         ) : (
           <React.Fragment>
             <div className="meta-date">{formatDate(match.kickoff)}</div>
