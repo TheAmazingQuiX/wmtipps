@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8" />
+<title>Debug Test 2 - gepinnte Versionen</title>
+<script src="https://unpkg.com/react@18.3.1/umd/react.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.7/babel.min.js"></script>
+<script src="https://unpkg.com/@supabase/supabase-js@2.49.4"></script>
+</head>
+<body>
+<div id="root">Falls das hier stehen bleibt, lief etwas schief.</div>
+<script type="text/babel">
+  const hasSupabase = typeof window.supabase !== "undefined";
+  const root = ReactDOM.createRoot(document.getElementById("root"));
+  root.render(
+    <h1>
+      Test erfolgreich! React + Babel + Supabase-js funktionieren.
+      <br />
+      (supabase-js geladen: {hasSupabase ? "ja" : "nein"})
+    </h1>
+  );
+</script>
+</body>
+</html>
