@@ -1,0 +1,21 @@
+name: WM 2026 Ergebnisse synchronisieren
+
+on:
+  schedule:
+    # Läuft alle 6 Stunden (Uhrzeiten in UTC: 0, 6, 12, 18 Uhr)
+    - cron: "0 */6 * * *"
+  workflow_dispatch: {}
+    # Erlaubt zusätzlich, den Sync manuell über den "Run workflow"-Button
+    # im GitHub-Tab "Actions" auszulösen.
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Edge Function "sync-results" aufrufen
+        run: |
+          curl -sS -X POST "${{ secrets.SUPABASE_FUNCTION_URL }}" \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer ${{ secrets.SUPABASE_ANON_KEY }}" \
+            -d "{\"trigger_secret\": \"${{ secrets.SYNC_TRIGGER_SECRET }}\"}" \
+            --fail-with-body
